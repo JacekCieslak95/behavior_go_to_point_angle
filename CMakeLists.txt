@@ -17,7 +17,7 @@ set(BEHAVIOR_GO_TO_POINT_ANGLE_INCLUDE_DIR
 )
 
 # Files declaration
-set(BEHAVIOR_GO_TO_POINT_ANGL_SOURCE_FILES
+set(BEHAVIOR_GO_TO_POINT_ANGLE_SOURCE_FILES
   ${BEHAVIOR_GO_TO_POINT_ANGLE_SOURCE_DIR}/behavior_go_to_point_angle.cpp
   ${BEHAVIOR_GO_TO_POINT_ANGLE_SOURCE_DIR}/behavior_go_to_point_angle.cpp
 )
@@ -70,6 +70,7 @@ add_library(behavior_go_to_point_angle_lib ${BEHAVIOR_GO_TO_POINT_ANGLE_SOURCE_F
 add_dependencies(behavior_go_to_point_angle_lib ${catkin_EXPORTED_TARGETS})
 target_link_libraries(behavior_go_to_point_angle_lib ${catkin_LIBRARIES})
 target_link_libraries(behavior_go_to_point_angle_lib yaml-cpp)
+
 
 add_executable(behavior_go_to_point_angle ${BEHAVIOR_GO_TO_POINT_ANGLE_SOURCE_DIR}/behavior_go_to_point_angle_main.cpp)
 add_dependencies(behavior_go_to_point_angle ${catkin_EXPORTED_TARGETS})

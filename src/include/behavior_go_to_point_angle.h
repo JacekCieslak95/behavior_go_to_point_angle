@@ -23,33 +23,35 @@
 #define GO_TO_POINT_ANGLE_H
 
 #include <string>
-
-//ROS
+#include <math.h>
+// ROS
 #include <ros/ros.h>
 #include "std_srvs/Empty.h"
 #include <droneMsgsROS/droneSpeeds.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include <yaml-cpp/yaml.h>
-#include <tuple>
 #include <droneMsgsROS/dronePositionRefCommandStamped.h>
+#include <droneMsgsROS/dronePositionTrajectoryRefCommand.h>
 #include <droneMsgsROS/droneYawRefCommand.h>
 #include <droneMsgsROS/droneTrajectoryControllerControlMode.h>
 #include <droneMsgsROS/setControlMode.h>
-
-//Aerosstack msgs
+#include <droneMsgsROS/ConsultBelief.h>
+#include <tuple>
+// Aerostack msgs
 #include <droneMsgsROS/BehaviorEvent.h>
-#include <droneMsgsROS/droneDAltitudeCmd.h>
 #include <droneMsgsROS/dronePose.h>
 #include <droneMsgsROS/droneCommand.h>
-#include <droneMsgsROS/ConsultBelief.h>
-
+#include <droneMsgsROS/dronePitchRollCmd.h>
+#include <droneMsgsROS/droneDAltitudeCmd.h>
+#include <droneMsgsROS/droneDYawCmd.h>
+#include <droneMsgsROS/askForModule.h>
 //Aerostack libraries
 #include <behavior_process.h>
 
-class behaviorGoToPointAngle: public BehaviorProcess{
+class BehaviorGoToPointAngle: public BehaviorProcess{
 public:
-  behaviorGoToPointAngle();
-  ~behaviorGoToPointAngle();
+  BehaviorGoToPointAngle();
+  ~BehaviorGoToPointAngle();
 private:
   ros::NodeHandle node_handle;
 
@@ -69,6 +71,8 @@ private:
   std::string drone_control_mode_str;
   std::string d_altitude_str;
   std::string execute_query_srv;
+  std::string rotation_start_srv;
+  std::string rotation_stop_srv;
 
   //Subscriber
   ros::Subscriber estimated_pose_sub;
@@ -82,11 +86,14 @@ private:
   //Service Clients
   ros::ServiceClient mode_service;
   ros::ServiceClient query_client;
+  ros::ServiceClient rotation_start_client;
+  ros::ServiceClient rotation_stop_client;
 
   //Message
   droneMsgsROS::dronePose estimated_pose_msg;
-  droneMsgsROS::droneSpeeds target_position;
+  droneMsgsROS::dronePose target_position;
   droneMsgsROS::droneSpeeds estimated_speed_msg;
+  droneMsgsROS::droneSpeeds setpoint_speed_msg;
   geometry_msgs::Vector3Stamped rotation_angles_msg;
 
   bool is_finished;
@@ -95,12 +102,15 @@ private:
   void ownRun();
   void ownStop();
 
+  float angle;
+  float speed;
+
   std::tuple<bool, std::string> ownCheckSituation();
 
   //CallBacks
   void estimatedPoseCallBack(const droneMsgsROS::dronePose&);
-  void estimatedSpeedCallBack(const droneMsgsROS::droneSpeeds&);
-  void rotationAnglesCallBack(const geometry_msgs::Vector3Stamped&);
+  void estimatedSpeedCallback(const droneMsgsROS::droneSpeeds&);
+  void rotationAnglesCallback(const geometry_msgs::Vector3Stamped&);
 };
 
 #endif

@@ -26,7 +26,7 @@ int main(int argc, char** argv){
 
   std::cout << ros::this_node::getName() << std::endl;
 
-  behaviorGoToPointAngle behavior;
+  BehaviorGoToPointAngle behavior;
   behavior.setUp();
   ros::Rate rate(10);
 
