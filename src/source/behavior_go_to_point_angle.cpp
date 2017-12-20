@@ -51,6 +51,7 @@ void BehaviorGoToPointAngle::ownSetUp(){
 }
 
 void BehaviorGoToPointAngle::ownStart(){
+  is_finished = false;
   std::cout << "ownStart" << std::endl;
   //Initialize topics
   estimated_pose_sub = node_handle.subscribe(estimated_pose_str, 1000, &BehaviorGoToPointAngle::estimatedPoseCallBack, this);
@@ -111,7 +112,7 @@ estimated_speed_sub = node_handle.subscribe(estimated_speed_str, 1000, &Behavior
   setpoint_speed_msg.dy = speed * (target_position.y - estimated_pose_msg.y) / distance;
   setpoint_speed_msg.dz = speed * (target_position.z - estimated_pose_msg.z) / distance;
 
-  target_position.yaw = angle + atan2(setpoint_speed_msg.dy, setpoint_speed_msg.dx);
+  target_position.yaw = angle + atan2(setpoint_speed_msg.dy, setpoint_speed_msg.dx)*(180/M_PI);
   std::cout << "calculated speed in axes:" << std::endl
             << "\tx: " << setpoint_speed_msg.dx
             << "\ty: " << setpoint_speed_msg.dy
@@ -119,11 +120,22 @@ estimated_speed_sub = node_handle.subscribe(estimated_speed_str, 1000, &Behavior
 
   //behavior implementation
   droneMsgsROS::StartBehavior startRotationMessage;
-  std::ostringstream capturador;
-  capturador<<"ANGLE="<<target_position.yaw;
-  std::string startRotationArguments(capturador.str());
-
+  YAML::Emitter out;
+  out << YAML::BeginMap;
+  out << YAML::Key << "angle";
+  out << YAML::Value << target_position.yaw;
+  out << YAML::EndMap;
+  std::string startRotationArguments(out.c_str());
+  std::cout << startRotationArguments << std::endl;
+  startRotationMessage.request.arguments = startRotationArguments;
+  startRotationMessage.request.timeout = 20;
   rotation_start_client.call(startRotationMessage);
+
+
+
+  //ros::topic::waitForMessage<droneMsgsROS::StopBehavior>(rotation_stop_srv, node_handle);
+  std::cout<<"Setpoint angle: "<< target_position.yaw << std::endl;
+
   /*
    * obliczenie wektora prędkości. Jeśli się da, to w X, Y, Z. Jeśli nie, to tylko w X, Y
    * W takim przypadku zrezygnujemy z 3D na rzecz 2D (odchodzi kontrola wysokości)
@@ -134,6 +146,18 @@ estimated_speed_sub = node_handle.subscribe(estimated_speed_str, 1000, &Behavior
 }
 
 void BehaviorGoToPointAngle::ownRun(){
+  float angle_variation_maximum=2;
+  std::cout<<"OwnRun"<<std::endl;
+  if(!is_finished){
+    std::cout<<"\rCurrent yaw: " << estimated_pose_msg.yaw ;
+    if(std::abs(estimated_pose_msg.yaw*180/M_PI - target_position.yaw)<angle_variation_maximum){
+      std::cout<<"\rCurrent yaw: " << estimated_pose_msg.yaw*180/M_PI ;
+      BehaviorProcess::setFinishEvent(droneMsgsROS::BehaviorEvent::GOAL_ACHIEVED);
+      BehaviorProcess::setFinishConditionSatisfied(true);
+      is_finished = true;
+      return;
+    }
+  }
   /*
    * kontrola obrotu
    * Po zakończeniu obrotu ruch w osiach 3D (jeśli możliwe na raz).
@@ -144,7 +168,6 @@ void BehaviorGoToPointAngle::ownRun(){
 }
 
 void BehaviorGoToPointAngle::ownStop(){
-  is_finished = false;
   estimated_pose_sub.shutdown();
   estimated_speed_sub.shutdown();
   rotation_angles_sub.shutdown();
