@@ -82,6 +82,7 @@ private:
   ros::Publisher controllers_pub;
   ros::Publisher yaw_controller_pub;
   ros::Publisher drone_position_pub;
+  ros::Publisher  speed_topic_pub;
   ros::Publisher d_altitude_pub;
   //Service Clients
   ros::ServiceClient mode_service;
@@ -104,6 +105,7 @@ private:
 
   float angle;
   float speed;
+  int state;
 
   std::tuple<bool, std::string> ownCheckSituation();
 
