@@ -104,6 +104,7 @@ void BehaviorGoToPointAngle::ownStart(){
     angle=0;
     std::cout<<"Could not read angle. Default angle="<<angle<<std::endl;
   }
+  estimated_pose_msg = *ros::topic::waitForMessage<droneMsgsROS::dronePose>(estimated_pose_str, node_handle, ros::Duration(2));
 
   //calculate speeds and angle
   double distance = sqrt(pow(target_position.x-estimated_pose_msg.x,2)
@@ -115,6 +116,7 @@ void BehaviorGoToPointAngle::ownStart(){
   //setpoint_speed_msg.dz = speed * (target_position.z - estimated_pose_msg.z) / distance;
   setpoint_speed_msg.dz=0.5 * speed;
   target_position.yaw=atan2(target_position.y-estimated_pose_msg.y,target_position.x-estimated_pose_msg.x)+angle;
+
   std::cout << "Setpoint_angle (rad): " << target_position.yaw << "  (deg):" << target_position.yaw * M_PI/180 <<std::endl;
   std::cout << "calculated speed in axes:" << std::endl
             << "\tx: " << setpoint_speed_msg.dx
