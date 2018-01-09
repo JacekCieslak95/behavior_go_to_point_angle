@@ -88,6 +88,7 @@ void BehaviorGoToPointAngle::ownStart(){
     setStarted(false);
     return;
   }
+  if(target_position.z < 0.7 ) target_position.z = 0.7;
     //get speed
   if(config_file["speed"].IsDefined()){
     speed=config_file["speed"].as<float>();
@@ -108,13 +109,12 @@ void BehaviorGoToPointAngle::ownStart(){
 
   //calculate speeds and angle
   double distance = sqrt(pow(target_position.x-estimated_pose_msg.x,2)
-                         + pow(target_position.y-estimated_pose_msg.y,2));
-  //                       + pow(target_position.z-estimated_pose_msg.z,2));
+                         + pow(target_position.y-estimated_pose_msg.y,2)
+                         + pow(target_position.z-estimated_pose_msg.z,2));
   setpoint_speed_msg.dx = speed * (target_position.x - estimated_pose_msg.x) / distance;
   setpoint_speed_msg.dy = speed * (target_position.y - estimated_pose_msg.y) / distance;
-  //sending speed in z axis has no efect in here
-  //setpoint_speed_msg.dz = speed * (target_position.z - estimated_pose_msg.z) / distance;
-  setpoint_speed_msg.dz=0.5 * speed;
+  setpoint_speed_msg.dz = speed * (target_position.z - estimated_pose_msg.z) / distance;
+
   target_position.yaw=atan2(target_position.y-estimated_pose_msg.y,target_position.x-estimated_pose_msg.x)+angle;
 
   std::cout << "Setpoint_angle (rad): " << target_position.yaw << "  (deg):" << target_position.yaw * M_PI/180 <<std::endl;
@@ -137,7 +137,6 @@ void BehaviorGoToPointAngle::ownStart(){
   rotation_start_client.call(startRotationMessage);
 
   std::cout<<"Setpoint angle: "<< target_position.yaw * 180/M_PI << std::endl;
-
 }
 
 void BehaviorGoToPointAngle::ownRun(){
@@ -146,102 +145,68 @@ void BehaviorGoToPointAngle::ownRun(){
     case 0:{  //check if rotation is finished
         float angle_variation_maximum=0.1 * M_PI/180;
         if(std::abs(target_position.yaw-estimated_pose_msg.yaw) < angle_variation_maximum){
-          state = 4;
+          state = 1;
+          estimated_speed_msg = *ros::topic::waitForMessage<droneMsgsROS::droneSpeeds>(estimated_speed_str, node_handle, ros::Duration(2));
+          estimated_pose_msg = *ros::topic::waitForMessage<droneMsgsROS::dronePose>(estimated_pose_str, node_handle, ros::Duration(2));
+          droneMsgsROS::setControlMode mode;
+          mode.request.controlMode.command=mode.request.controlMode.SPEED_CONTROL;
+          mode_service.call(mode);
+
+          droneMsgsROS::droneSpeeds point;
+          point.dx=estimated_speed_msg.dx;
+          point.dy=estimated_speed_msg.dy;
+          point.dz=estimated_speed_msg.dz;
+          speed_topic_pub.publish(point);
+
+          ros::topic::waitForMessage<droneMsgsROS::droneTrajectoryControllerControlMode>(
+            drone_control_mode_str, node_handle
+          );
+          droneMsgsROS::droneCommand msg;
+          msg.command = droneMsgsROS::droneCommand::MOVE;
+          controllers_pub.publish(msg);
+          break;
         }
         std::cout << "state 0" << std::endl;
         break;
     }
-    case 1:{  //start changing altitude;
-      estimated_speed_msg = *ros::topic::waitForMessage<droneMsgsROS::droneSpeeds>(estimated_speed_str, node_handle, ros::Duration(2));
-      estimated_pose_msg = *ros::topic::waitForMessage<droneMsgsROS::dronePose>(estimated_pose_str, node_handle, ros::Duration(2));
-      droneMsgsROS::setControlMode mode;
-      mode.request.controlMode.command=mode.request.controlMode.SPEED_CONTROL;
-      mode_service.call(mode);
+    case 1:{  //start movement in xyz
+      float distance_variation_maximum = 0.2;
+      double distanceXY = sqrt(pow(target_position.x-estimated_pose_msg.x,2)
+                             + pow(target_position.y-estimated_pose_msg.y,2));
 
-      droneMsgsROS::droneSpeeds point;
-      ros::topic::waitForMessage<droneMsgsROS::droneTrajectoryControllerControlMode>(
-        drone_control_mode_str, node_handle);
-      point.dx=0;
-      point.dy=0;
-      point.dz=5;
-      speed_topic_pub.publish(point);
+      setpoint_speed_msg.dx = speed * (target_position.x - estimated_pose_msg.x) / distanceXY;
+      setpoint_speed_msg.dy = speed * (target_position.y - estimated_pose_msg.y) / distanceXY;
+      setpoint_speed_msg.dz = 1.0 * (target_position.z - estimated_pose_msg.z);
 
-      droneMsgsROS::droneCommand msg;
-      msg.command = droneMsgsROS::droneCommand::MOVE;
-      controllers_pub.publish(msg);
+      if (setpoint_speed_msg.dz > 2.0 ) setpoint_speed_msg.dz = 2.0;
+      else if (setpoint_speed_msg.dz < (-2.0)) setpoint_speed_msg.dz = -2.0;
 
-      estimated_speed_msg = *ros::topic::waitForMessage<droneMsgsROS::droneSpeeds>(estimated_speed_str, node_handle, ros::Duration(2));
-      droneMsgsROS::droneDAltitudeCmd d_altitude_msg;
-      if(target_position.z - estimated_pose_msg.z>0) d_altitude_msg.dAltitudeCmd = 0.25;
-      else d_altitude_msg.dAltitudeCmd = -0.25;
-      d_altitude_pub.publish(d_altitude_msg);
-      state=2;
-      std::cout << "state 1" << std::endl;
-      break;
-    }
-    case 2:{ //check if setpoint altitude is reached
-      double precision_take_off = 0.1;
-      if(std::abs(std::abs(estimated_pose_msg.z) - target_position.z) < precision_take_off){
-        state = 3;
-        std::cout << "state 2 finished" << std::endl;
+      if((std::abs(target_position.x - estimated_pose_msg.x)) < distance_variation_maximum){
+        setpoint_speed_msg.dx=0.0;
       }
-      std::cout << "state 2" << std::endl;
-      break;
-    }
-    case 3:{  //stop changing altitude
-      droneMsgsROS::droneDAltitudeCmd d_altitude_msg;
-      d_altitude_msg.dAltitudeCmd = 0.0;
-      d_altitude_pub.publish(d_altitude_msg);
-      std::cout << "state 3" << std::endl;
-      state = 4;
-      break;
-    }
-    case 4:{  //start movement in xy
-      std::cout << "state 4" << std::endl;
-      estimated_speed_msg = *ros::topic::waitForMessage<droneMsgsROS::droneSpeeds>(estimated_speed_str, node_handle, ros::Duration(2));
-      estimated_pose_msg = *ros::topic::waitForMessage<droneMsgsROS::dronePose>(estimated_pose_str, node_handle, ros::Duration(2));
-
-      droneMsgsROS::setControlMode mode;
-      mode.request.controlMode.command=mode.request.controlMode.SPEED_CONTROL;
-      mode_service.call(mode);
-
-      droneMsgsROS::droneSpeeds point;
-      point.dx=estimated_speed_msg.dx;
-      point.dy=estimated_speed_msg.dy;
-      point.dz=estimated_speed_msg.dz;
-      speed_topic_pub.publish(point);
-
-      ros::topic::waitForMessage<droneMsgsROS::droneTrajectoryControllerControlMode>(
-        drone_control_mode_str, node_handle
-      );
+      if((std::abs(target_position.y - estimated_pose_msg.y)) < distance_variation_maximum){
+        setpoint_speed_msg.dy=0.0;
+      }
+      if((std::abs(target_position.z - estimated_pose_msg.z)) < distance_variation_maximum){
+        setpoint_speed_msg.dz=0.0;
+      }
+      if(sqrt(pow(target_position.x-estimated_pose_msg.x,2)
+              + pow(target_position.y-estimated_pose_msg.y,2) + pow(target_position.z-estimated_pose_msg.z,2)) < sqrt(3) * distance_variation_maximum){
+        state = 2;
+      }
 
       droneMsgsROS::droneSpeeds droneSpeed;
       droneSpeed.dx=setpoint_speed_msg.dx;
       droneSpeed.dy=setpoint_speed_msg.dy;
       droneSpeed.dz=setpoint_speed_msg.dz;
+      droneSpeed.dyaw=0.0;
       speed_topic_pub.publish(droneSpeed);
 
-      droneMsgsROS::droneCommand msg;
-      msg.command = droneMsgsROS::droneCommand::MOVE;
-      controllers_pub.publish(msg);
-
+      break;
+    }
+    case 2:{ //stop movement, start hovering
       estimated_speed_msg = *ros::topic::waitForMessage<droneMsgsROS::droneSpeeds>(estimated_speed_str, node_handle, ros::Duration(2));
 
-      state = 5;
-      break;
-    }
-    case 5:{  //check if movement is finished
-      std::cout << "state 5" << std::endl;
-      float distance_variation_maximum = 0.2;
-      if(sqrt(pow(target_position.x-estimated_pose_msg.x,2)
-              + pow(target_position.y-estimated_pose_msg.y,2)) < distance_variation_maximum){
-        state = 6;
-        std::cout << "state 5 finish" << std::endl;
-      }
-      break;
-    }
-    case 6:{ //stop movement, start hovering
-      std::cout << "state 6" << std::endl;
       droneMsgsROS::droneSpeeds point;
       point.dx=estimated_speed_msg.dx;
       point.dy=estimated_speed_msg.dy;
