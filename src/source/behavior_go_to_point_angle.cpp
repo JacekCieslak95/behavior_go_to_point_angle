@@ -28,6 +28,8 @@ BehaviorGoToPointAngle::~BehaviorGoToPointAngle(){
 }
 
 void BehaviorGoToPointAngle::ownSetUp(){
+  safetyR0=0.75;
+  safetyR1=1.5;
   std::cout << "ownSetUp" << std::endl;
 
   node_handle.param<std::string>("drone_id", drone_id, "1");
@@ -53,6 +55,8 @@ void BehaviorGoToPointAngle::ownSetUp(){
 void BehaviorGoToPointAngle::ownStart(){
   is_finished = false;
   state = 0;
+  //Avoid drone1
+  leaderID = 1;
   std::cout << "ownStart" << std::endl;
   //Initialize topics
   estimated_pose_sub = node_handle.subscribe(estimated_pose_str, 1000, &BehaviorGoToPointAngle::estimatedPoseCallBack, this);
@@ -67,6 +71,11 @@ void BehaviorGoToPointAngle::ownStart(){
   query_client = node_handle.serviceClient <droneMsgsROS::ConsultBelief> (execute_query_srv);
   rotation_start_client = node_handle.serviceClient<droneMsgsROS::StartBehavior>(rotation_start_srv);
   rotation_stop_client = node_handle.serviceClient<droneMsgsROS::StartBehavior>(rotation_stop_srv);
+
+  estimated_intruder_pose_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_pose");
+  estimated_intruder_speed_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_speed");
+  estimated_intruder_pose_sub = node_handle.subscribe(estimated_intruder_pose_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderPoseCallBack, this);
+  estimated_intruder_speed_sub = node_handle.subscribe(estimated_intruder_speed_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderSpeedCallback, this);
 
   //get arguments
   std::string arguments=getArguments();
@@ -166,13 +175,22 @@ void BehaviorGoToPointAngle::ownRun(){
           controllers_pub.publish(msg);
           break;
         }
-        std::cout << "state 0" << std::endl;
         break;
     }
-    case 1:{  //start movement in xyz
+    case 1:{  //movement in xyz
+      std::cout << "state 1" << " distance to intruder = " << intruderDistanceXY << std::endl;
       float distance_variation_maximum = 0.2;
       double distanceXY = sqrt(pow(target_position.x-estimated_pose_msg.x,2)
                              + pow(target_position.y-estimated_pose_msg.y,2));
+      if(intruderDistanceXY < safetyR0){
+        state = 3;
+        break;
+      }
+      else if (intruderDistanceXY < safetyR1){
+        state = 4;
+        break;
+      }
+
 
       setpoint_speed_msg.dx = speed * (target_position.x - estimated_pose_msg.x) / distanceXY;
       setpoint_speed_msg.dy = speed * (target_position.y - estimated_pose_msg.y) / distanceXY;
@@ -234,6 +252,80 @@ void BehaviorGoToPointAngle::ownRun(){
       is_finished=true;
       break;
     }
+    case 3:{//safety zone 0 - escpe from intruder
+      std::cout << "safety zone 0 - escpe from intruder" << " distance to intruder = " << intruderDistanceXY << std::endl;
+
+      if(intruderDistanceXY > safetyR1){ // start movement in normal way
+        state = 1;
+        break;
+      }
+      else if(intruderDistanceXY > safetyR0){ // stop movement
+        state = 4;
+        break;
+      }
+
+      float yIntruderEstimate = estimated_intruder_pose_msg.y + (estimated_intruder_speed_msg.dy/estimated_intruder_speed_msg.dx) *
+          (estimated_pose_msg.x - estimated_intruder_pose_msg.x);
+
+      float droneDirection;
+      float temp_dx, temp_dy;
+      droneMsgsROS::droneSpeeds droneSpeed;
+      if (estimated_intruder_speed_msg.dy != 0.0 && estimated_intruder_speed_msg.dx != 0.0){
+        droneDirection = (-1) * (estimated_intruder_speed_msg.dx/estimated_intruder_speed_msg.dy);
+        if (yIntruderEstimate > estimated_pose_msg.y){
+          temp_dy = (-1) * std::abs(droneDirection);
+        }
+        else{
+          temp_dy = std::abs(droneDirection);
+        }
+        temp_dx = temp_dy / droneDirection;
+        float temp_length = sqrt(pow(temp_dx,2) + pow(temp_dy,2));
+        droneSpeed.dx = speed * temp_dx/temp_length;
+        droneSpeed.dy = speed * temp_dy/temp_length;
+      }
+      else if (estimated_intruder_speed_msg.dy != 0.0){
+        if (estimated_intruder_pose_msg.x < estimated_pose_msg.x){
+          droneSpeed.dx = speed;
+        }
+        else{
+          droneSpeed.dx = (-1.0) * speed;
+        }
+        droneSpeed.dy = 0.0;
+      }
+      else{
+        if (estimated_intruder_pose_msg.y < estimated_pose_msg.y){
+          droneSpeed.dy = speed;
+        }
+        else{
+          droneSpeed.dy = (-1.0) * speed;
+        }
+        droneSpeed.dx = 0.0;
+      }
+
+      droneSpeed.dz = 0.0;
+      droneSpeed.dyaw = 0.0;
+      speed_topic_pub.publish(droneSpeed);
+
+      break;
+    }
+    case 4:{//safety zone 1 - stop movement
+      std::cout << "safety zone 1 - stop movement" << " distance to intruder = " << intruderDistanceXY << std::endl;
+      if(intruderDistanceXY < safetyR0){ // start escape
+        state = 3;
+        break;
+      }
+      else if(intruderDistanceXY > safetyR1){ // start movement in normal way
+        state = 1;
+        break;
+      }
+      droneMsgsROS::droneSpeeds droneSpeed;
+      droneSpeed.dx = 0.0;
+      droneSpeed.dy = 0.0;
+      droneSpeed.dz = 0.0;
+      droneSpeed.dyaw = 0.0;
+      speed_topic_pub.publish(droneSpeed);
+      break;
+    }
     default:{
         std::cout<<"State error"<<std::endl;
         break;
@@ -276,12 +368,21 @@ std::tuple<bool,std::string> BehaviorGoToPointAngle::ownCheckSituation()
 }
 
 
+
 //CallBacks
 void BehaviorGoToPointAngle::estimatedSpeedCallback(const droneMsgsROS::droneSpeeds& msg){
   estimated_speed_msg=msg;
 }
+void BehaviorGoToPointAngle::estimatedIntruderSpeedCallback(const droneMsgsROS::droneSpeeds& msg){
+  estimated_intruder_speed_msg=msg;
+}
 void BehaviorGoToPointAngle::estimatedPoseCallBack(const droneMsgsROS::dronePose& msg){
   estimated_pose_msg=msg;
+}
+void BehaviorGoToPointAngle::estimatedIntruderPoseCallBack(const droneMsgsROS::dronePose& msg){
+  estimated_intruder_pose_msg=msg;
+  intruderDistanceXY = sqrt(pow((estimated_pose_msg.x - estimated_intruder_pose_msg.x),2)
+                            + pow((estimated_pose_msg.y - estimated_intruder_pose_msg.y),2));
 }
 void BehaviorGoToPointAngle::rotationAnglesCallback(const geometry_msgs::Vector3Stamped& msg){
   rotation_angles_msg=msg;
