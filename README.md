@@ -1,6 +1,6 @@
 # Behavior GoToPointAngle
 Paczka tworzy behavior używany przez Aerostack (oprogramowanie grupy Vision4UAV: https://github.com/Vision4UAV/Aerostack)
-Zachowanie umożliwia dronowi poruszanie się pod zadanym kątem do zadanego punktu. Nie jest wykorzystywany path planning. Na ten moment możliwe poruszanie tylko w płaszczyźnie XY.
+Zachowanie umożliwia dronowi poruszanie się pod zadanym kątem do zadanego punktu. Nie jest wykorzystywany path planning.
 ### Instalacja ###
 1. Pliki niniejszego repozytorium należy umieścić w folderze 
     `~/workspace/ros/aerostack_catkin_ws/src/`
