@@ -137,11 +137,7 @@ void BehaviorGoToPointAngle::ownStart(){
 
   target_position.yaw=atan2(target_position.y-estimated_pose_msg.y,target_position.x-estimated_pose_msg.x)+angle;
 
-  std::cout << "Setpoint_angle (rad): " << target_position.yaw << "  (deg):" << target_position.yaw * M_PI/180 <<std::endl;
-  std::cout << "calculated speed in axes:" << std::endl
-            << "\tx: " << setpoint_speed_msg.dx
-            << "\ty: " << setpoint_speed_msg.dy
-            << "\tz: " << setpoint_speed_msg.dz << std::endl;
+  std::cout << "Setpoint_angle (rad): " << target_position.yaw << "  (deg):" << target_position.yaw * 180/M_PI <<std::endl;
 
   //behavior implementation
   droneMsgsROS::StartBehavior startRotationMessage;
@@ -151,12 +147,9 @@ void BehaviorGoToPointAngle::ownStart(){
   out << YAML::Value << target_position.yaw * 180/M_PI;
   out << YAML::EndMap;
   std::string startRotationArguments(out.c_str());
-  std::cout << startRotationArguments << std::endl;
   startRotationMessage.request.arguments = startRotationArguments;
   startRotationMessage.request.timeout = 20;
   rotation_start_client.call(startRotationMessage);
-
-  std::cout<<"Setpoint angle: "<< target_position.yaw * 180/M_PI << std::endl;
 }
 
 void BehaviorGoToPointAngle::ownRun(){
@@ -189,7 +182,6 @@ void BehaviorGoToPointAngle::ownRun(){
         break;
     }
     case 1:{  //movement in xyz
-      std::cout << "state 1" << " distance to intruder = " << intruderDistanceXY << std::endl;
       float distance_variation_maximum = 0.2;
       double distanceXY = sqrt(pow(target_position.x-estimated_pose_msg.x,2)
                              + pow(target_position.y-estimated_pose_msg.y,2));
@@ -201,7 +193,6 @@ void BehaviorGoToPointAngle::ownRun(){
         state = 4;
         break;
       }
-
 
       setpoint_speed_msg.dx = speed * (target_position.x - estimated_pose_msg.x) / distanceXY;
       setpoint_speed_msg.dy = speed * (target_position.y - estimated_pose_msg.y) / distanceXY;
@@ -264,8 +255,6 @@ void BehaviorGoToPointAngle::ownRun(){
       break;
     }
     case 3:{//safety zone 0 - escpe from intruder
-      std::cout << "safety zone 0 - escpe from intruder" << " distance to intruder = " << intruderDistanceXY << std::endl;
-
       if(intruderDistanceXY > safetyR1){ // start movement in normal way
         state = 1;
         break;
@@ -320,7 +309,6 @@ void BehaviorGoToPointAngle::ownRun(){
       break;
     }
     case 4:{//safety zone 1 - stop movement
-      std::cout << "safety zone 1 - stop movement" << " distance to intruder = " << intruderDistanceXY << std::endl;
       if(intruderDistanceXY < safetyR0){ // start escape
         state = 3;
         break;
