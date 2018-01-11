@@ -104,8 +104,8 @@ void BehaviorGoToPointAngle::ownStart(){
     leaderID=config_file["avoid_drone_id"].as<int>();
   }
   else{
-    leaderID = 1;
-    std::cout<<"Could not avoid_drone_ID. Default avoid_drone_ID="<<leaderID<<std::endl;
+    leaderID = -1;
+    std::cout<<"Could not read avoid_drone_ID. Collision avoidance disabled" << std::endl;
   }
     //get angle
   if(config_file["angle"].IsDefined()){
@@ -115,10 +115,15 @@ void BehaviorGoToPointAngle::ownStart(){
     angle=0;
     std::cout<<"Could not read angle. Default angle="<<angle<<std::endl;
   }
-  estimated_intruder_pose_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_pose");
-  estimated_intruder_speed_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_speed");
-  estimated_intruder_pose_sub = node_handle.subscribe(estimated_intruder_pose_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderPoseCallBack, this);
-  estimated_intruder_speed_sub = node_handle.subscribe(estimated_intruder_speed_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderSpeedCallback, this);
+  if(leaderID != -1){
+    estimated_intruder_pose_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_pose");
+    estimated_intruder_speed_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_speed");
+    estimated_intruder_pose_sub = node_handle.subscribe(estimated_intruder_pose_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderPoseCallBack, this);
+    estimated_intruder_speed_sub = node_handle.subscribe(estimated_intruder_speed_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderSpeedCallback, this);
+  }
+  else{
+    intruderDistanceXY = 1000;
+  }
 
   estimated_pose_msg = *ros::topic::waitForMessage<droneMsgsROS::dronePose>(estimated_pose_str, node_handle, ros::Duration(2));
 
@@ -188,11 +193,11 @@ void BehaviorGoToPointAngle::ownRun(){
       float distance_variation_maximum = 0.2;
       double distanceXY = sqrt(pow(target_position.x-estimated_pose_msg.x,2)
                              + pow(target_position.y-estimated_pose_msg.y,2));
-      if(intruderDistanceXY < safetyR0){
+      if(intruderDistanceXY < safetyR0 && leaderID != -1){
         state = 3;
         break;
       }
-      else if (intruderDistanceXY < safetyR1){
+      else if (intruderDistanceXY < safetyR1  && leaderID != -1){
         state = 4;
         break;
       }
