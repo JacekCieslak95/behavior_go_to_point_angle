@@ -77,6 +77,11 @@ Jest to kąt (w stopniach) pod jakim dron będzie skierowany względem punktu. D
     speed=x
     
 Jest to prędkość osiągana przez drona. Nie podając argumentu domyślnie speed=5
+
+    avoid_drone_ID=x
+
+Jest to numer drona, z którym kolizjii dron będzie unikał. Uwaga, przy niepodaniu numeru - dron nie unika kolizji.
+
 Przykład wywołania:
 `result = api.executeBehavior('GO_TO_POINT_ANGLE', coordinates=[6.5, 6.5, 3], speed=5, angle=30, avoid_drone_id=2)`
 
