@@ -53,6 +53,8 @@ Zachowanie umożliwia dronowi poruszanie się pod zadanym kątem do zadanego pun
                 allowed_values: [-360,360]
               - argument: SPEED
                 allowed_values: [0,30]
+              - argument: AVOID_DRONE_ID
+                allowed_values: [0,10]
 		    
 				
 ##### UWAGA! Wcięcia powinny być realizowane przez spacje, nie tabulatory!
@@ -76,6 +78,6 @@ Jest to kąt (w stopniach) pod jakim dron będzie skierowany względem punktu. D
     
 Jest to prędkość osiągana przez drona. Nie podając argumentu domyślnie speed=5
 Przykład wywołania:
-`result = api.executeBehavior('GO_TO_POINT_ANGLE', coordinates=[6.5, 6.5, 3], speed=5, angle=30)`
+`result = api.executeBehavior('GO_TO_POINT_ANGLE', coordinates=[6.5, 6.5, 3], speed=5, angle=30, avoid_drone_id=2)`
 
 

@@ -55,8 +55,6 @@ void BehaviorGoToPointAngle::ownSetUp(){
 void BehaviorGoToPointAngle::ownStart(){
   is_finished = false;
   state = 0;
-  //Avoid drone1
-  leaderID = 1;
   std::cout << "ownStart" << std::endl;
   //Initialize topics
   estimated_pose_sub = node_handle.subscribe(estimated_pose_str, 1000, &BehaviorGoToPointAngle::estimatedPoseCallBack, this);
@@ -72,10 +70,6 @@ void BehaviorGoToPointAngle::ownStart(){
   rotation_start_client = node_handle.serviceClient<droneMsgsROS::StartBehavior>(rotation_start_srv);
   rotation_stop_client = node_handle.serviceClient<droneMsgsROS::StartBehavior>(rotation_stop_srv);
 
-  estimated_intruder_pose_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_pose");
-  estimated_intruder_speed_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_speed");
-  estimated_intruder_pose_sub = node_handle.subscribe(estimated_intruder_pose_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderPoseCallBack, this);
-  estimated_intruder_speed_sub = node_handle.subscribe(estimated_intruder_speed_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderSpeedCallback, this);
 
   //get arguments
   std::string arguments=getArguments();
@@ -106,6 +100,13 @@ void BehaviorGoToPointAngle::ownStart(){
     speed = 5;
     std::cout<<"Could not read speed. Default speed="<<speed<<std::endl;
   }
+  if(config_file["avoid_drone_id"].IsDefined()){
+    leaderID=config_file["avoid_drone_id"].as<int>();
+  }
+  else{
+    leaderID = 1;
+    std::cout<<"Could not avoid_drone_ID. Default avoid_drone_ID="<<leaderID<<std::endl;
+  }
     //get angle
   if(config_file["angle"].IsDefined()){
     angle=config_file["angle"].as<float>() * M_PI/180;
@@ -114,6 +115,11 @@ void BehaviorGoToPointAngle::ownStart(){
     angle=0;
     std::cout<<"Could not read angle. Default angle="<<angle<<std::endl;
   }
+  estimated_intruder_pose_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_pose");
+  estimated_intruder_speed_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_speed");
+  estimated_intruder_pose_sub = node_handle.subscribe(estimated_intruder_pose_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderPoseCallBack, this);
+  estimated_intruder_speed_sub = node_handle.subscribe(estimated_intruder_speed_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderSpeedCallback, this);
+
   estimated_pose_msg = *ros::topic::waitForMessage<droneMsgsROS::dronePose>(estimated_pose_str, node_handle, ros::Duration(2));
 
   //calculate speeds and angle
