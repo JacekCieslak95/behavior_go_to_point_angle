@@ -182,6 +182,7 @@ void BehaviorGoToPointAngle::ownRun(){
         break;
     }
     case 1:{  //movement in xyz
+      std::cout << "state 1, intruder distance:" << intruderDistanceXY  << std::endl;
       float distance_variation_maximum = 0.2;
       double distanceXY = sqrt(pow(target_position.x-estimated_pose_msg.x,2)
                              + pow(target_position.y-estimated_pose_msg.y,2));
@@ -225,6 +226,7 @@ void BehaviorGoToPointAngle::ownRun(){
       break;
     }
     case 2:{ //stop movement, start hovering
+      std::cout << "state 2, intruder distance:" << intruderDistanceXY  << std::endl;
       estimated_speed_msg = *ros::topic::waitForMessage<droneMsgsROS::droneSpeeds>(estimated_speed_str, node_handle, ros::Duration(2));
 
       droneMsgsROS::droneSpeeds point;
@@ -255,6 +257,7 @@ void BehaviorGoToPointAngle::ownRun(){
       break;
     }
     case 3:{//safety zone 0 - escpe from intruder
+      std::cout << "state 3, intruder distance:" << intruderDistanceXY  << std::endl;
       if(intruderDistanceXY > safetyR1){ // start movement in normal way
         state = 1;
         break;
@@ -321,6 +324,7 @@ void BehaviorGoToPointAngle::ownRun(){
       break;
     }
     case 4:{//safety zone 1 - stop movement
+      std::cout << "state 4, intruder distance:" << intruderDistanceXY  << std::endl;
       if(intruderDistanceXY < safetyR0){ // start escape
         state = 3;
         break;
