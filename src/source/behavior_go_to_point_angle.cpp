@@ -101,11 +101,19 @@ void BehaviorGoToPointAngle::ownStart(){
     std::cout<<"Could not read speed. Default speed="<<speed<<std::endl;
   }
   if(config_file["avoid_drone_id"].IsDefined()){
+    intruderDistanceXY = 1000;
     leaderID=config_file["avoid_drone_id"].as<int>();
+    std::cout<<"Avoiding drone " << leaderID << std::endl;
+    estimated_intruder_pose_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_pose");
+    estimated_intruder_speed_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_speed");
+    estimated_intruder_pose_sub = node_handle.subscribe(estimated_intruder_pose_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderPoseCallBack, this);
+    estimated_intruder_speed_sub = node_handle.subscribe(estimated_intruder_speed_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderSpeedCallback, this);
+
   }
   else{
     leaderID = -1;
     std::cout<<"Could not read avoid_drone_ID. Collision avoidance disabled" << std::endl;
+    intruderDistanceXY = 1000;
   }
     //get angle
   if(config_file["angle"].IsDefined()){
@@ -115,15 +123,7 @@ void BehaviorGoToPointAngle::ownStart(){
     angle=0;
     std::cout<<"Could not read angle. Default angle="<<angle<<std::endl;
   }
-  if(leaderID != -1){
-    estimated_intruder_pose_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_pose");
-    estimated_intruder_speed_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_speed");
-    estimated_intruder_pose_sub = node_handle.subscribe(estimated_intruder_pose_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderPoseCallBack, this);
-    estimated_intruder_speed_sub = node_handle.subscribe(estimated_intruder_speed_str, 1000, &BehaviorGoToPointAngle::estimatedIntruderSpeedCallback, this);
-  }
-  else{
-    intruderDistanceXY = 1000;
-  }
+
 
   estimated_pose_msg = *ros::topic::waitForMessage<droneMsgsROS::dronePose>(estimated_pose_str, node_handle, ros::Duration(2));
 
@@ -136,10 +136,10 @@ void BehaviorGoToPointAngle::ownStart(){
   setpoint_speed_msg.dz = speed * (target_position.z - estimated_pose_msg.z) / distance;
 
   target_position.yaw=atan2(target_position.y-estimated_pose_msg.y,target_position.x-estimated_pose_msg.x)+angle;
-
+  target_position.yaw = fmod(target_position.yaw + 2*M_PI, 2*M_PI);
   std::cout << "Setpoint_angle (rad): " << target_position.yaw << "  (deg):" << target_position.yaw * 180/M_PI <<std::endl;
 
-  //behavior implementation
+  /*//behavior implementation
   droneMsgsROS::StartBehavior startRotationMessage;
   YAML::Emitter out;
   out << YAML::BeginMap;
@@ -148,16 +148,36 @@ void BehaviorGoToPointAngle::ownStart(){
   out << YAML::EndMap;
   std::string startRotationArguments(out.c_str());
   startRotationMessage.request.arguments = startRotationArguments;
-  startRotationMessage.request.timeout = 20;
-  rotation_start_client.call(startRotationMessage);
+  startRotationMessage.request.timeout = 20;*/
+  //rotation_start_client.call(startRotationMessage);
+
+  estimated_speed_msg = *ros::topic::waitForMessage<droneMsgsROS::droneSpeeds>(estimated_speed_str, node_handle, ros::Duration(2));
+  estimated_pose_msg = *ros::topic::waitForMessage<droneMsgsROS::dronePose>(estimated_pose_str, node_handle, ros::Duration(2));
+  droneMsgsROS::setControlMode mode;
+  mode.request.controlMode.command=mode.request.controlMode.SPEED_CONTROL;
+  mode_service.call(mode);
+
+  droneMsgsROS::droneSpeeds point;
+  point.dx=estimated_speed_msg.dx;
+  point.dy=estimated_speed_msg.dy;
+  point.dz=estimated_speed_msg.dz;
+  speed_topic_pub.publish(point);
+
+  ros::topic::waitForMessage<droneMsgsROS::droneTrajectoryControllerControlMode>(
+    drone_control_mode_str, node_handle
+  );
+  droneMsgsROS::droneCommand msg;
+  msg.command = droneMsgsROS::droneCommand::MOVE;
+  controllers_pub.publish(msg);
+
 }
 
 void BehaviorGoToPointAngle::ownRun(){
   if(!is_finished){
     switch(state){
     case 0:{  //check if rotation is finished
-        float angle_variation_maximum=0.1 * M_PI/180;
-        if(std::abs(target_position.yaw-estimated_pose_msg.yaw) < angle_variation_maximum){
+        float angle_variation_maximum=.1 * M_PI/180;
+        if(std::abs(target_position.yaw- fmod(estimated_pose_msg.yaw + 2*M_PI, 2*M_PI)) < angle_variation_maximum){
           state = 1;
           estimated_speed_msg = *ros::topic::waitForMessage<droneMsgsROS::droneSpeeds>(estimated_speed_str, node_handle, ros::Duration(2));
           estimated_pose_msg = *ros::topic::waitForMessage<droneMsgsROS::dronePose>(estimated_pose_str, node_handle, ros::Duration(2));
@@ -178,6 +198,24 @@ void BehaviorGoToPointAngle::ownRun(){
           msg.command = droneMsgsROS::droneCommand::MOVE;
           controllers_pub.publish(msg);
           break;
+        }
+        else{
+          float dYaw;
+          float setpoint_yaw=target_position.yaw;
+          float current_yaw = fmod(estimated_pose_msg.yaw + 2*M_PI, 2*M_PI);
+          float yaw_diff = fmod((setpoint_yaw - current_yaw)+2*M_PI,2*M_PI);
+
+          if(std::abs(yaw_diff) > angle_variation_maximum && std::abs(yaw_diff) < (2*M_PI - angle_variation_maximum)){
+            std::cout << "state 0, yaw diff:" << yaw_diff << std::endl;
+            dYaw = (-2.0) * (fmod((yaw_diff/M_PI + 1),2)-1);
+            //calculate dYaw speed
+          }
+          droneMsgsROS::droneSpeeds droneSpeed;
+          droneSpeed.dx=0;
+          droneSpeed.dy=0;
+          droneSpeed.dz=0;
+          droneSpeed.dyaw=dYaw;
+          speed_topic_pub.publish(droneSpeed);
         }
         break;
     }
