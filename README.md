@@ -43,7 +43,7 @@ Zachowanie umożliwia dronowi poruszanie się pod zadanym kątem do zadanego pun
             incompatible_lists: [motion_behaviors]
             capabilities: [SETPOINT_BASED_FLIGHT_CONTROL, PATH_PLANNING]
             arguments:
-              - argument: POSITION
+              - argument: COORDINATES
                 allowed_values: [-100,100]
                 dimensions: 3
               - argument: RELATIVE_COORDINATES
