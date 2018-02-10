@@ -103,6 +103,11 @@ void BehaviorGoToPointAngle::ownStart(){
   if(config_file["avoid_drone_id"].IsDefined()){
     intruderDistanceXY = 1000;
     leaderID=config_file["avoid_drone_id"].as<int>();
+    if (leaderID == atoi(drone_id.c_str())){ //check if is not following itself
+      std::cout<<"Can not avoid itself!" << std::endl;
+      setStarted(false);
+      return;
+    }
     std::cout<<"Avoiding drone " << leaderID << std::endl;
     estimated_intruder_pose_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_pose");
     estimated_intruder_speed_str = std::string("/drone") + std::to_string(leaderID) + std::string("/estimated_speed");
