@@ -3,7 +3,7 @@
 Read in [Polish]
 
 This package creates behavior used by [Aerostack] (framework developed by [Vision4UAV]).
-This behavior enables following a given drone (based on its position).
+This behavior enables the drone to move at a given angle to a given point. It does not utilize path planning.
 
 ### Instalation ###
 1. Move the files of this repository into the
@@ -79,16 +79,16 @@ It is the angle (in degrees) at which the drone will be angled towards the desti
     
 This it the speed of the drone. If it is not filled, the default speed=5.
 
-    avoid_drone_ID=x
+    avoid_drone_id=x
 
-This is the number of the drone that our drone will not collide with. Notice! If it is not given, the drone will not avoid collisions.
+This is the ID number of the drone that our drone will not collide with. Notice! If it is not given, the drone will not avoid collisions.
 
 Example of a call::
 `result = api.executeBehavior('GO_TO_POINT_ANGLE', coordinates=[6.5, 6.5, 3], speed=5, angle=30, avoid_drone_id=2)`
 
 
 [//]: # (These are reference links used in the body of this note and get stripped out when the markdown processor does its job. There is no need to format nicely because it shouldn't be seen. Thanks SO - http://stackoverflow.com/questions/4823468/store-comments-in-markdown-syntax)
-   [Polish]: <https://github.com/JacekCieslak95/behavior_follow_uav/blob/master/README.md>
-   [English]: <https://github.com/JacekCieslak95/behavior_follow_uav/blob/master/README_en.md>
+   [Polish]: <https://github.com/JacekCieslak95/behavior_go_to_point_angle/blob/master/README.md>
+   [English]: <https://github.com/JacekCieslak95/behavior_go_to_point_angle/blob/master/README_en.md>
    [Aerostack]: <https://github.com/Vision4UAV/Aerostack>
    [Vision4UAV]: <https://github.com/Vision4UAV>
