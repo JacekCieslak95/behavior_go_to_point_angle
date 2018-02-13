@@ -1,5 +1,8 @@
 # Behavior GoToPointAngle
-Paczka tworzy behavior używany przez Aerostack (oprogramowanie grupy Vision4UAV: https://github.com/Vision4UAV/Aerostack)
+
+Read in [English]
+
+Paczka tworzy behavior używany przez [Aerostack] (oprogramowanie grupy [Vision4UAV])
 Zachowanie umożliwia dronowi poruszanie się pod zadanym kątem do zadanego punktu. Nie jest wykorzystywany path planning.
 ### Instalacja ###
 1. Pliki niniejszego repozytorium należy umieścić w folderze 
@@ -85,4 +88,9 @@ Jest to numer drona, z którym kolizjii dron będzie unikał. Uwaga, przy niepod
 Przykład wywołania:
 `result = api.executeBehavior('GO_TO_POINT_ANGLE', coordinates=[6.5, 6.5, 3], speed=5, angle=30, avoid_drone_id=2)`
 
+[//]: # (These are reference links used in the body of this note and get stripped out when the markdown processor does its job. There is no need to format nicely because it shouldn't be seen. Thanks SO - http://stackoverflow.com/questions/4823468/store-comments-in-markdown-syntax)
+   [Polish]: <https://github.com/JacekCieslak95//behavior_go_to_point_angle/blob/master/README.md>
+   [English]: <https://github.com/JacekCieslak95//behavior_go_to_point_angle/blob/master/README_en.md>
+   [Aerostack]: <https://github.com/Vision4UAV>
+   [Vision4UAV]: <https://github.com/Vision4UAV/Aerostack>
 
